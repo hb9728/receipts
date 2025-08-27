@@ -11,8 +11,6 @@ type Post = {
   reaction_wow: number;
   reaction_mad: number;
   image_url?: string | null;
-  image_w?: number | null;
-  image_h?: number | null;
 };
 
 export function PostCard({ post }: { post: Post }) {
@@ -39,19 +37,12 @@ export function PostCard({ post }: { post: Post }) {
     if (res.ok) alert('thanks — our mods will review this.');
   }
 
-  const ratio = local.image_w && local.image_h ? (local.image_h / local.image_w) : 0;
-
   return (
     <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
       {local.image_url && (
-        <div className="mb-3">
-          <div className="w-full overflow-hidden rounded-lg border border-neutral-800" style={{ aspectRatio: ratio ? `${local.image_w}/${local.image_h}` : undefined }}>
-            <img src={local.image_url} alt="receipt image" className="w-full h-full object-cover" />
-          </div>
-        </div>
+        <img src={local.image_url} alt="" className="mb-3 w-full rounded-lg border border-neutral-800 object-cover" />
       )}
       {local.body_redacted && <p className="whitespace-pre-wrap leading-relaxed">{local.body_redacted}</p>}
-
       <div className="mt-3 flex items-center justify-between text-sm">
         <div className="flex gap-3">
           <button onClick={() => react('fire')} className="opacity-80 hover:opacity-100">🔥 {local.reaction_fire}</button>

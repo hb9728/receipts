@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const cursor = searchParams.get('cursor');
 
   let query = supabaseAnon.from('posts')
-    .select('id,created_at,body_redacted,reaction_fire,reaction_lol,reaction_wow,reaction_mad,is_hidden,image_url,image_w,image_h,image_blurhash')
+    .select('id,created_at,body_redacted,reaction_fire,reaction_lol,reaction_wow,reaction_mad,is_hidden,image_url')
     .eq('is_hidden', false)
     .order('created_at', { ascending: false })
     .limit(PAGE + 1);

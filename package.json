@@ -1,7 +1,7 @@
 {
   "name": "receipts",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "scripts": {
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
@@ -10,12 +10,8 @@
   "engines": { "node": ">=18.18 <23" },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
-    "@tensorflow/tfjs": "^4.20.0",
-    "@vladmandic/human": "^3.7.3",
     "bad-words": "^3.0.4",
-    "blurhash": "^2.0.5",
     "next": "14.2.5",
-    "nsfwjs": "^2.6.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "swr": "^2.2.5",

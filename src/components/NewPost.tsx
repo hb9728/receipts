@@ -3,11 +3,8 @@
 import { useState } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { processImage } from '@/lib/image/processImage';
 
-type Uploaded = {
-  image_url: string; width: number; height: number; blurhash: string; hasFaces: boolean; nsfwScore: number;
-};
+type Uploaded = { image_url: string };
 
 export function NewPost({ onPosted }: { onPosted?: () => void }) {
   const [body, setBody] = useState('');
@@ -22,65 +19,41 @@ export function NewPost({ onPosted }: { onPosted?: () => void }) {
     if (!f) return;
     setErr(null);
     setFileName(f.name);
+    setUploading(true);
     try {
-      setUploading(true);
-      // client-side sanitize
-      const res = await processImage(f);
-      // send to server
-      const q = new URLSearchParams({
-        w: String(res.width),
-        h: String(res.height),
-        bh: res.blurhash,
-        f: res.hasFaces ? '1' : '0',
-        n: String(res.nsfwScore)
-      });
-      const up = await fetch(`/api/upload-image?${q.toString()}`, {
-        method: 'POST',
-        body: res.blob
-      });
-      const j = await up.json();
-      if (!up.ok) throw new Error(j.error || 'upload failed');
+      // downscale to max 1600px side; export webp (strips exif). keeps size small.
+      const blob = await simpleDownscaleToWebp(f, 1600, 0.85);
+      const fd = new FormData();
+      fd.append('file', new File([blob], 'upload.webp', { type: 'image/webp' }));
+      const res = await fetch('/api/upload-image', { method: 'POST', body: fd });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || 'upload failed');
       setUploaded(j);
     } catch (e: any) {
-      setErr(e.message || 'could not process image');
+      setErr(e.message || 'could not upload image');
       setUploaded(null);
       setFileName(null);
-      (e as any).stack; // noop
     } finally {
       setUploading(false);
     }
   }
 
   async function submit() {
-    if (!body.trim() && !uploaded) {
-      setErr('add a caption or an image');
-      return;
-    }
+    if (!body.trim() && !uploaded) { setErr('add a caption or an image'); return; }
     setBusy(true); setErr(null);
     const res = await fetch('/api/post', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         body: body.trim(),
-        image: uploaded ? {
-          url: uploaded.image_url,
-          w: uploaded.width,
-          h: uploaded.height,
-          blurhash: uploaded.blurhash,
-          hasFaces: uploaded.hasFaces,
-          nsfwScore: uploaded.nsfwScore
-        } : undefined
+        image: uploaded ? { url: uploaded.image_url } : undefined
       })
     });
     const j = await res.json().catch(() => ({}));
     if (res.ok) {
-      setBody('');
-      setUploaded(null);
-      setFileName(null);
+      setBody(''); setUploaded(null); setFileName(null);
       onPosted?.();
-    } else {
-      setErr(j.error || 'failed to post');
-    }
+    } else { setErr(j.error || 'failed to post'); }
     setBusy(false);
   }
 
@@ -115,16 +88,35 @@ export function NewPost({ onPosted }: { onPosted?: () => void }) {
       </div>
       {uploaded?.image_url && (
         <div className="mt-3">
-          <img
-            src={uploaded.image_url}
-            alt=""
-            className="w-full rounded-lg border border-neutral-800"
-          />
-          <div className="mt-1 text-[11px] text-neutral-500">
-            faces auto-blurred. adult content blocked.
-          </div>
+          <img src={uploaded.image_url} alt="" className="w-full rounded-lg border border-neutral-800" />
         </div>
       )}
     </div>
   );
+}
+
+/** downscale to maxSide px and return webp blob (no external deps). */
+async function simpleDownscaleToWebp(file: File, maxSide = 1600, quality = 0.85): Promise<Blob> {
+  const img = await fileToImage(file);
+  const ratio = Math.min(1, maxSide / Math.max(img.width, img.height));
+  const w = Math.round(img.width * ratio);
+  const h = Math.round(img.height * ratio);
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, w, h);
+  return new Promise((resolve, reject) =>
+    canvas.toBlob(b => b ? resolve(b) : reject(new Error('encode failed')), 'image/webp', quality)
+  );
+}
+function fileToImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = reject;
+    img.src = url;
+  });
 }
